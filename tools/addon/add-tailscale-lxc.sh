@@ -34,6 +34,7 @@ if ! command -v pveversion &>/dev/null; then
   msg_error "This script must be run on the Proxmox VE host (not inside an LXC container)"
   exit 1
 fi
+NODE=$(hostname)
 
 CT_MODE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Tailscale LXC" --menu \
   "\nSelect how you want to continue:\n" 13 78 2 \
@@ -59,10 +60,6 @@ else
   header_info
   msg_info "Loading container list..."
 
-  NODE=$(hostname)
-  MSG_MAX_LENGTH=0
-  CTID_MENU=()
-  NODE=$(hostname)
   MSG_MAX_LENGTH=0
   CTID_MENU=()
 
@@ -73,22 +70,7 @@ else
     ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=$((${#ITEM} + OFFSET))
     CTID_MENU+=("$TAG" "$ITEM" "OFF")
   done < <(pct list | awk 'NR>1')
-  while read -r line; do
-    TAG=$(echo "$line" | awk '{print $1}')
-    ITEM=$(echo "$line" | awk '{print substr($0,36)}')
-    OFFSET=2
-    ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=$((${#ITEM} + OFFSET))
-    CTID_MENU+=("$TAG" "$ITEM" "OFF")
-  done < <(pct list | awk 'NR>1')
 
-  CTID=""
-  while [[ -z "${CTID}" ]]; do
-    CTID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --radiolist \
-      "\nSelect a container to add Tailscale to:\n" \
-      16 $((MSG_MAX_LENGTH + 23)) 6 \
-      "${CTID_MENU[@]}" 3>&1 1>&2 2>&3) || exit 1
-  done
-fi
   CTID=""
   while [[ -z "${CTID}" ]]; do
     CTID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --radiolist \
