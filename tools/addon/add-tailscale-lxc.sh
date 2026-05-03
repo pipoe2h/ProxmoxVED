@@ -45,7 +45,7 @@ if [[ "$CT_MODE" == "new" ]]; then
   header_info
   msg_info "Launching Debian CT build workflow"
   EXISTING_CTIDS=$(pct list | awk 'NR>1 {print $1}')
-  bash /workspace/ProxmoxVED/ct/debian.sh
+  var_cpu=1 var_ram=128 var_disk=8 var_gpu=no bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/refs/heads/main/ct/debian.sh)"
   CTID=$(pct list | awk 'NR>1 {print $1}' | while read -r id; do
     [[ " ${EXISTING_CTIDS} " == *" ${id} "* ]] || echo "$id"
   done | tail -n1)
