@@ -35,37 +35,48 @@ if ! command -v pveversion &>/dev/null; then
   exit 1
 fi
 
-while true; do
-  read -rp "This will add Tailscale to an existing LXC Container ONLY. Proceed (y/n)? " yn
-  case "$yn" in
-  [Yy]*) break ;;
-  [Nn]*) exit 0 ;;
-  *) echo "Please answer yes or no." ;;
-  esac
-done
+CT_MODE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Tailscale LXC" --menu \
+  "\nSelect how you want to continue:\n" 13 78 2 \
+  "existing" "Install Tailscale in an existing LXC container" \
+  "new" "Build a new Debian LXC container first (via build.func)" \
+  3>&1 1>&2 2>&3) || exit 1
 
-header_info
-msg_info "Loading container list..."
+if [[ "$CT_MODE" == "new" ]]; then
+  header_info
+  msg_info "Launching Debian CT build workflow"
+  EXISTING_CTIDS=$(pct list | awk 'NR>1 {print $1}')
+  bash /workspace/ProxmoxVED/ct/debian.sh
+  CTID=$(pct list | awk 'NR>1 {print $1}' | while read -r id; do
+    [[ " ${EXISTING_CTIDS} " == *" ${id} "* ]] || echo "$id"
+  done | tail -n1)
+  if [[ -z "$CTID" ]]; then
+    msg_error "Could not detect the new container ID."
+    exit 1
+  fi
+else
+  header_info
+  msg_info "Loading container list..."
 
-NODE=$(hostname)
-MSG_MAX_LENGTH=0
-CTID_MENU=()
+  NODE=$(hostname)
+  MSG_MAX_LENGTH=0
+  CTID_MENU=()
 
-while read -r line; do
-  TAG=$(echo "$line" | awk '{print $1}')
-  ITEM=$(echo "$line" | awk '{print substr($0,36)}')
-  OFFSET=2
-  ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=$((${#ITEM} + OFFSET))
-  CTID_MENU+=("$TAG" "$ITEM" "OFF")
-done < <(pct list | awk 'NR>1')
+  while read -r line; do
+    TAG=$(echo "$line" | awk '{print $1}')
+    ITEM=$(echo "$line" | awk '{print substr($0,36)}')
+    OFFSET=2
+    ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=$((${#ITEM} + OFFSET))
+    CTID_MENU+=("$TAG" "$ITEM" "OFF")
+  done < <(pct list | awk 'NR>1')
 
-CTID=""
-while [[ -z "${CTID}" ]]; do
-  CTID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --radiolist \
-    "\nSelect a container to add Tailscale to:\n" \
-    16 $((MSG_MAX_LENGTH + 23)) 6 \
-    "${CTID_MENU[@]}" 3>&1 1>&2 2>&3) || exit 1
-done
+  CTID=""
+  while [[ -z "${CTID}" ]]; do
+    CTID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --radiolist \
+      "\nSelect a container to add Tailscale to:\n" \
+      16 $((MSG_MAX_LENGTH + 23)) 6 \
+      "${CTID_MENU[@]}" 3>&1 1>&2 2>&3) || exit 1
+  done
+fi
 
 CTID_CONFIG_PATH="/etc/pve/lxc/${CTID}.conf"
 
