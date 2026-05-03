@@ -44,11 +44,13 @@ CT_MODE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Tailscale LX
 if [[ "$CT_MODE" == "new" ]]; then
   header_info
   msg_info "Launching Debian CT build workflow"
-  EXISTING_CTIDS=$(pct list | awk 'NR>1 {print $1}')
-  var_cpu=1 var_ram=128 var_disk=8 var_gpu=no bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/refs/heads/main/ct/debian.sh)"
-  CTID=$(pct list | awk 'NR>1 {print $1}' | while read -r id; do
-    [[ " ${EXISTING_CTIDS} " == *" ${id} "* ]] || echo "$id"
-  done | tail -n1)
+  CT_NAME=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "New Debian CT Hostname" --inputbox \
+    "\nEnter hostname for the new container:\n" 10 58 "debian-tailscale" \
+    3>&1 1>&2 2>&3) || exit 1
+  mapfile -t EXISTING_CTIDS < <(pct list | awk 'NR>1 {print $1}' | sort -n)
+  var_cpu=1 var_ram=128 var_disk=8 var_gpu=no var_hostname="$CT_NAME" bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/refs/heads/main/ct/debian.sh)"
+  mapfile -t CURRENT_CTIDS < <(pct list | awk 'NR>1 {print $1}' | sort -n)
+  CTID=$(comm -13 <(printf "%s\n" "${EXISTING_CTIDS[@]}") <(printf "%s\n" "${CURRENT_CTIDS[@]}") | tail -n1)
   if [[ -z "$CTID" ]]; then
     msg_error "Could not detect the new container ID."
     exit 1
