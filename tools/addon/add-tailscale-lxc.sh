@@ -47,9 +47,9 @@ if [[ "$CT_MODE" == "new" ]]; then
   CT_NAME=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "New Debian CT Hostname" --inputbox \
     "\nEnter hostname for the new container:\n" 10 58 "debian-tailscale" \
     3>&1 1>&2 2>&3) || exit 1
-  mapfile -t EXISTING_CTIDS < <(pct list | awk 'NR>1 {print $1}' | sort -n)
+  mapfile -t EXISTING_CTIDS < <(pct list | awk 'NR>1 {print $1}' | sort)
   var_cpu=1 var_ram=256 var_disk=8 var_gpu=no var_hostname="$CT_NAME" var_tun=yes var_nesting=1 var_keyctl=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVED/refs/heads/main/ct/debian.sh)"
-  mapfile -t CURRENT_CTIDS < <(pct list | awk 'NR>1 {print $1}' | sort -n)
+  mapfile -t CURRENT_CTIDS < <(pct list | awk 'NR>1 {print $1}' | sort)
   CTID=$(comm -13 <(printf "%s\n" "${EXISTING_CTIDS[@]}") <(printf "%s\n" "${CURRENT_CTIDS[@]}") | tail -n1)
   if [[ -z "$CTID" ]]; then
     msg_error "Could not detect the new container ID."
@@ -62,6 +62,9 @@ else
   NODE=$(hostname)
   MSG_MAX_LENGTH=0
   CTID_MENU=()
+  NODE=$(hostname)
+  MSG_MAX_LENGTH=0
+  CTID_MENU=()
 
   while read -r line; do
     TAG=$(echo "$line" | awk '{print $1}')
@@ -70,7 +73,22 @@ else
     ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=$((${#ITEM} + OFFSET))
     CTID_MENU+=("$TAG" "$ITEM" "OFF")
   done < <(pct list | awk 'NR>1')
+  while read -r line; do
+    TAG=$(echo "$line" | awk '{print $1}')
+    ITEM=$(echo "$line" | awk '{print substr($0,36)}')
+    OFFSET=2
+    ((${#ITEM} + OFFSET > MSG_MAX_LENGTH)) && MSG_MAX_LENGTH=$((${#ITEM} + OFFSET))
+    CTID_MENU+=("$TAG" "$ITEM" "OFF")
+  done < <(pct list | awk 'NR>1')
 
+  CTID=""
+  while [[ -z "${CTID}" ]]; do
+    CTID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --radiolist \
+      "\nSelect a container to add Tailscale to:\n" \
+      16 $((MSG_MAX_LENGTH + 23)) 6 \
+      "${CTID_MENU[@]}" 3>&1 1>&2 2>&3) || exit 1
+  done
+fi
   CTID=""
   while [[ -z "${CTID}" ]]; do
     CTID=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Containers on $NODE" --radiolist \
